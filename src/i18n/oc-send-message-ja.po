@@ -1,0 +1,27 @@
+# oc-send-message japanese translation.
+# Copyright (C) Toshiyuki Ogawa<toshi@oc-soft.net>
+# This file is distributed under the same license as the oc-send-message
+# package.
+# Toshiyuki Ogawa<toshi@oc-soft.net>.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: 0.1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-02-20 20:53+0900\n"
+"PO-Revision-Date: 2022-02-20 21:01+0900\n"
+"Last-Translator: Toshiyuki Ogawa<toshi@oc-soft.net>\n"
+"Language-Team: japanese <toshi@oc-soft.net>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: /Users/toshiyuki/Projects/nbs/oc-send-message/src/php/lib/verification-dialog.php:9
+msgid "Submit"
+msgstr "送信"
+
+#: /Users/toshiyuki/Projects/nbs/oc-send-message/src/php/lib/verification-dialog.php:12
+msgid "Cancel"
+msgstr "取り消し"

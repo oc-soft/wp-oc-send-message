@@ -1,0 +1,349 @@
+
+plugins {
+    id 'org.jetbrains.kotlin.multiplatform' 
+    id 'io.miret.etienne.sass' version '1.1.2'
+}
+
+repositories {
+    jcenter()
+}
+
+ext.siteSetting = [
+    targetDirectory: 'oc-send-message'
+]
+
+ext.webpackMode = 'development'
+ext.webpackSetting = [:]
+ext.webpackSetting.gradleBuildJs= 'gradle-build.js'
+ext.webpackSetting.gradleBuildPath =
+    file("webpack.config.d/00_${webpackSetting.gradleBuildJs}")
+
+kotlin {
+    js {
+        browser {
+            webpackTask {
+                output.libraryTarget = 'umd'
+            }
+        }
+    }
+
+    sourceSets {
+        jsCommon {
+            dependencies {
+                compileOnly npm('dialog-polyfill', '>=0.5.6')
+            }
+        }
+
+        jsMain {
+            dependsOn jsCommon
+            dependencies {
+                implementation kotlin('stdlib-js')
+            }
+        }
+    }
+}
+
+/**
+ * get webpack task name
+ */
+def getWebpackTaskName() {
+    return "jsBrowser${ext.webpackMode.capitalize()}Webpack"
+}
+
+/**
+ * get distribution directory
+ */
+def getDistributionDir() {
+    def result = null
+    kotlin {
+        js {
+            browser {
+                distribution {
+                    result = directory
+                }
+            }
+        }
+    }
+    return result
+}
+
+sass {
+    version = '1.49.0'
+}
+
+
+
+compileSass {
+    def destDir = "${buildDir}/${siteSetting['targetDirectory']}/css"
+
+    sourceDir = file("src/style")
+    outputDir = file(destDir)
+
+}
+
+
+/**
+ * get webpack mode
+ */
+def getWebpackMode() {
+    def result = null
+    kotlin {
+        js {
+            browser {
+                commonWebpackConfig {
+                    result = mode
+                }
+            }
+        }
+    }
+    return result
+}
+
+task setupWebpackConfig {
+/*
+    doLast {
+        def buildSetting = [:]
+        
+        buildSetting['configDir'] = file('src/config')
+        def tmp = new groovy.text.StreamingTemplateEngine()
+        def gradleBuildSrc = file("tools/${webpackSetting.gradleBuildJs}")
+        tmp = tmp.createTemplate(gradleBuildSrc) 
+        def jsonGenerator = new groovy.json.JsonGenerator.Options()
+            .addConverter(File.class) { it.toString() }
+            .build()
+            
+        def buildConfig = groovy.json.JsonOutput.prettyPrint(
+            jsonGenerator.toJson(buildSetting))
+        def gradleBuildContents = tmp.make([
+            config: buildConfig
+        ])
+        webpackSetting.gradleBuildPath.text = gradleBuildContents
+    }
+*/
+}
+
+jsBrowserDevelopmentWebpack.dependsOn setupWebpackConfig
+jsBrowserProductionWebpack.dependsOn setupWebpackConfig
+
+/**
+ * get language parameter
+ */
+def getLanguageParams() {
+    def locales = ["ja"]
+
+    def destDir = "${buildDir}/languages/plugins"
+    def packageName = project.name
+    return locales.collect {
+        [
+            file("src/i18n/${packageName}-${it}.po"),
+            file("${destDir}/${packageName}-${it}.mo")
+        ]
+    }
+}
+
+/**
+ *  get language template file
+ */
+def getPotFile() {
+    return file("src/i18n/${project.name}.pot")
+}
+
+/**
+ * create translation template file
+ */
+task xgettext {
+
+    def files = fileTree("src/php").filter { it.isFile() }.files 
+    inputs.files files
+    def outputFile = potFile
+    outputs.files outputFile
+
+
+    doLast {
+        exec {
+            args '-k__'
+            args '-o', outputFile
+            args '-L', 'php'
+            args files
+            executable = 'xgettext' 
+        }
+    }
+}
+
+/**
+ * message merge task
+ */
+task msgmerge {
+
+    description = 'merge message from pot file into po file'
+
+    def inputFile = potFile
+
+
+    inputs.files inputFile
+
+
+    def params = languageParams
+
+    outputs.files params.collect { it[0] }
+
+    params.each {
+        def outputFile = it[0]
+        if (outputFile.file) {
+            doLast {
+                exec {
+                    args '-U'
+                    args outputFile
+                    args inputFile
+                    executable = 'msgmerge'
+                }
+            } 
+        }
+    }
+}
+
+msgmerge.dependsOn xgettext
+
+
+
+/**
+ * create message object files.
+ */
+task createMoFiles {
+    description = 'create message object file'
+    
+    def params = languageParams
+    inputs.files params.collect { it[0] }
+    outputs.files params.collect { it[1] }
+
+
+    params.each {
+        def src = it[0]
+        def dest = it[1]
+
+        if (src.file) {
+            doLast {
+                exec {
+                    args '-o', dest 
+                    args src
+                    executable = 'msgfmt'
+                }
+            }
+        }
+    } 
+    
+}
+
+createMoFiles.dependsOn msgmerge
+
+
+
+/**
+ * copy javascript into site image directory
+ */
+task copyJsIntoSiteImage {
+    def destDir = "${buildDir}/${siteSetting['targetDirectory']}/js"
+    def srcDir = getDistributionDir()    
+
+    doLast {
+        copy {
+            from srcDir
+            into destDir
+            include '**/*.js'
+            include '**/*.map'
+        }
+    }
+}
+
+
+
+copyJsIntoSiteImage.dependsOn tasks.getByPath(getWebpackTaskName())
+
+
+/**
+ * copy php files into site image directory
+ */
+task copyPhpIntoSiteImage {
+   
+    def destDir = "${buildDir}/${siteSetting['targetDirectory']}"
+    def srcDir = file('src/php')
+
+
+    copy {
+        from srcDir
+        into destDir
+        include '**/*.php'
+    }
+}
+
+
+
+/**
+ * copy src/config directory into site image direcctory 
+ */
+task copyConfigIntoSiteImage {
+   
+    def destDir = "${buildDir}/${siteSetting['targetDirectory']}/config"
+    def srcDir = file('src/config')
+
+
+    copy {
+        from srcDir
+        into destDir
+        include '**/*.json'
+    }
+}
+
+task archivePlugin(type: org.gradle.api.tasks.bundling.Zip) {
+    description = 'archive plugin'
+    def inputDir = "${buildDir}/${project.name}"
+    def outputDir = new File(buildDir, "wordpress/plugins")
+
+    archiveBaseName = project.name
+    destinationDirectory = outputDir
+    into project.name
+    from inputDir
+}
+
+task archiveLanguages(type: org.gradle.api.tasks.bundling.Zip) {
+    description = 'archive languages'
+
+    languageParams.each { from it[1] }
+    from potFile
+
+    archiveBaseName = project.name
+    into "languages/plugins/"
+
+    destinationDirectory = new File(buildDir, "wordpress/languages/plugins") 
+    
+}
+
+archiveLanguages.dependsOn createMoFiles
+
+archivePlugin.dependsOn archiveLanguages
+
+
+/**
+ * build site imate
+ */
+task buildSiteImage {
+
+}
+
+buildSiteImage.dependsOn build
+buildSiteImage.dependsOn createMoFiles
+buildSiteImage.dependsOn copyPhpIntoSiteImage
+buildSiteImage.dependsOn copyJsIntoSiteImage
+buildSiteImage.dependsOn copyConfigIntoSiteImage
+buildSiteImage.dependsOn compileSass
+
+archivePlugin.dependsOn buildSiteImage
+
+task archiveModules {
+    description = 'create plugin and language module'
+    dependsOn archivePlugin
+    dependsOn archiveLanguages
+}
+
+
+// vi: se ts=4 sw=4 et:

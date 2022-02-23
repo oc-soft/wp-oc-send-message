@@ -1,0 +1,32 @@
+@use 'dialog';
+
+@mixin viewer-dialog-style {
+  border-width: 1px;
+  border-color: darken(white, 20%);
+  border-radius: 0.5em;
+}
+
+dialog.oc-send-message-viewer {
+  div.contents {
+    width: 70vw; 
+    height: 70vh;
+    overflow: scroll;
+
+  }
+  @include viewer-dialog-style;
+
+  &.fallback {
+    @include viewer-dialog-style;
+  }
+  div.header {
+    display: flex;
+    justify-content: center;
+  }
+  div.command-bar {
+    display: flex;
+    justify-content: center;
+  }
+}
+
+
+// vi: se ts=2 sw=2 et:
