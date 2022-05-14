@@ -1,18 +1,27 @@
 
 plugins {
     id 'org.jetbrains.kotlin.multiplatform' 
-    id 'io.miret.etienne.sass' version '1.1.2'
 }
 
 repositories {
     jcenter()
 }
 
+
+String.metaClass.stripExtension = {
+    def idx = lastIndexOf('.')
+    if (idx > 0) {
+        take(idx)
+    } else {
+        this
+    }
+}
+
 ext.siteSetting = [
     targetDirectory: 'oc-send-message'
 ]
 
-ext.webpackMode = 'development'
+ext.webpackMode = 'production'
 ext.webpackSetting = [:]
 ext.webpackSetting.gradleBuildJs= 'gradle-build.js'
 ext.webpackSetting.gradleBuildPath =
@@ -67,18 +76,25 @@ def getDistributionDir() {
     return result
 }
 
-sass {
-    version = '1.49.0'
-}
 
 
 
-compileSass {
+/**
+ * compile sass
+ */
+task compileSass(type: Exec) {
+    description = 'compile sass'
+    
     def destDir = "${buildDir}/${siteSetting['targetDirectory']}/css"
 
-    sourceDir = file("src/style")
-    outputDir = file(destDir)
-
+    def inputFile = file("src/style/oc-send-message.scss") 
+    def outputFile = "${destDir}/${inputFile.name.stripExtension()}.css"
+    inputs.file inputFile
+    outputs.file outputFile
+    executable = 'sassc'
+    
+    args inputFile, outputFile
+   
 }
 
 
